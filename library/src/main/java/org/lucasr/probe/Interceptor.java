@@ -17,7 +17,7 @@
 package org.lucasr.probe;
 
 import android.graphics.Canvas;
-import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 
 /**
@@ -123,6 +123,24 @@ public class Interceptor {
     protected final void invokeRequestLayout(View view) {
         final ViewProxy proxy = (ViewProxy) view;
         proxy.invokeRequestLayout();
+    }
+
+    public boolean onTouchEvent(View view, MotionEvent motionEvent) {
+        return invokeOnTouchEvent(view, motionEvent);
+    }
+
+    protected final boolean invokeOnTouchEvent(View view, MotionEvent event) {
+        final ViewProxy proxy = (ViewProxy) view;
+        return proxy.invokeOnTouchEvent(event);
+    }
+
+    public boolean onInterceptTouchEvent(View view, MotionEvent motionEvent) {
+        return invokeOnInterceptTouchEvent(view, motionEvent);
+    }
+
+    protected final boolean invokeOnInterceptTouchEvent(View view, MotionEvent event) {
+        final ViewProxy proxy = (ViewProxy) view;
+        return proxy.invokeOnInterceptTouchEvent(event);
     }
 
     /**

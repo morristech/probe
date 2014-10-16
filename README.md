@@ -11,6 +11,8 @@ Features
 - Intercept `View` methods.
   - `onMeasure(int, int)`
   - `onLayout(boolean, int, int, int, int)`
+  - `onTouchEvent(MotionEvent)`
+  - `onInterceptTouchEvent(MotionEvent)`
   - `draw(Canvas)` and `onDraw(Canvas)`
   - `requestLayout()`
 - Override any of these methods on-the-fly.

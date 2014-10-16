@@ -22,6 +22,7 @@ package org.lucasr.probe;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.view.MotionEvent;
 import android.view.View;
 
 import com.google.dexmaker.Code;
@@ -57,6 +58,8 @@ final class DexProxyBuilder {
         REQUEST_LAYOUT("requestLayout"),
         FORCE_LAYOUT("forceLayout"),
         SET_MEASURED_DIMENSION("setMeasuredDimension"),
+        ON_TOUCH_EVENT("onTouchEvent"),
+        ON_INTERCEPT_TOUCH_EVENT("onInterceptTouchEvent"),
         SET_INTERCEPTOR("setInterceptor");
 
         private final String mMethodName;
@@ -82,6 +85,7 @@ final class DexProxyBuilder {
     private static final String FIELD_NAME_INTERCEPTOR = "mInterceptor";
 
     private static final TypeId<Canvas> CANVAS_TYPE = TypeId.get(Canvas.class);
+    private static final TypeId<MotionEvent> MOTION_EVENT_TYPE = TypeId.get(MotionEvent.class);
     private static final TypeId<Interceptor> INTERCEPTOR_TYPE = TypeId.get(Interceptor.class);
     private static final TypeId<View> VIEW_TYPE = TypeId.get(View.class);
     private static final TypeId<ViewProxy> INTERCEPTABLE_VIEW_TYPE =
@@ -294,6 +298,67 @@ final class DexProxyBuilder {
     }
 
     /**
+     * Generates a method having a boolean return type and a {@link android.view.MotionEvent} parameter for the proxy class.
+     */
+    private static <T, G extends T> void generateTouchEventMethod(DexMaker dexMaker,
+                                                                  TypeId<G> generatedType,
+                                                                  TypeId<T> baseType,
+                                                                  ViewMethod viewMethod) {
+        final FieldId<G, Interceptor> interceptorField =
+                generatedType.getField(INTERCEPTOR_TYPE, FIELD_NAME_INTERCEPTOR);
+
+        final String methodName = viewMethod.getName();
+
+        final MethodId<T, Boolean> superMethod = baseType.getMethod(TypeId.BOOLEAN, methodName, MOTION_EVENT_TYPE);
+        final MethodId<Interceptor, Boolean> touchMethod =
+                INTERCEPTOR_TYPE.getMethod(TypeId.BOOLEAN, methodName, VIEW_TYPE, MOTION_EVENT_TYPE);
+
+        final MethodId<G, Boolean> methodId = generatedType.getMethod(TypeId.BOOLEAN, methodName, MOTION_EVENT_TYPE);
+        final Code code = dexMaker.declare(methodId, PUBLIC);
+
+        final Local<G> localThis = code.getThis(generatedType);
+        final Local<Boolean> returnValue = code.newLocal(TypeId.BOOLEAN);
+        final Local<Interceptor> nullInterceptor = code.newLocal(INTERCEPTOR_TYPE);
+        final Local<Interceptor> localInterceptor = code.newLocal(INTERCEPTOR_TYPE);
+        final Local<MotionEvent> localMotionEvent = code.getParameter(0, MOTION_EVENT_TYPE);
+
+        code.iget(interceptorField, localInterceptor, localThis);
+        code.loadConstant(nullInterceptor, null);
+
+        // Interceptor is not null, call it.
+        final Label interceptorNullCase = new Label();
+        code.compare(Comparison.EQ, interceptorNullCase, nullInterceptor, localInterceptor);
+        code.invokeVirtual(touchMethod, returnValue, localInterceptor, localThis, localMotionEvent);
+        code.returnValue(returnValue);
+
+        // Interceptor is null, call super method.
+        code.mark(interceptorNullCase);
+        code.invokeSuper(superMethod, returnValue, localThis, localMotionEvent);
+        code.returnValue(returnValue);
+
+        final MethodId<G, Boolean> callsSuperMethod =
+                generatedType.getMethod(TypeId.BOOLEAN, viewMethod.getInvokeName(), MOTION_EVENT_TYPE);
+
+        final Code superCode = dexMaker.declare(callsSuperMethod, PUBLIC);
+
+        final Local<G> superThis = superCode.getThis(generatedType);
+        final Local<MotionEvent> superLocalMotionEvent = superCode.getParameter(0, MOTION_EVENT_TYPE);
+        superCode.invokeSuper(superMethod, returnValue, superThis, superLocalMotionEvent);
+        superCode.returnValue(returnValue);
+    }
+
+    /**
+     * Generates the {@link android.view.View#onTouchEvent(android.view.MotionEvent)}
+     * and {@link android.view.ViewGroup#onInterceptTouchEvent(android.view.MotionEvent)} methods for the proxy class.
+     */
+    private static <T, G extends T> void generateTouchEventMethods(DexMaker dexMaker,
+                                                                   TypeId<G> generatedType,
+                                                                   TypeId<T> baseType) {
+        generateTouchEventMethod(dexMaker, generatedType, baseType, ViewMethod.ON_TOUCH_EVENT);
+        generateTouchEventMethod(dexMaker, generatedType, baseType, ViewMethod.ON_INTERCEPT_TOUCH_EVENT);
+    }
+
+    /**
      * Generates the {@link android.view.View#requestLayout()} method for the proxy class.
      */
     private static <T, G extends T> void generateRequestLayoutMethod(DexMaker dexMaker,
@@ -461,6 +526,7 @@ final class DexProxyBuilder {
         generateOnMeasureMethod(dexMaker, generatedType, baseType);
         generateOnLayoutMethod(dexMaker, generatedType, baseType);
         generateDrawMethods(dexMaker, generatedType, baseType);
+        generateTouchEventMethods(dexMaker, generatedType, baseType);
         generateRequestLayoutMethod(dexMaker, generatedType, baseType);
         generateForceLayoutMethod(dexMaker, generatedType, baseType);
         generateSetMeasuredDimension(dexMaker, generatedType, baseType);

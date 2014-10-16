@@ -17,6 +17,7 @@
 package org.lucasr.probe;
 
 import android.graphics.Canvas;
+import android.view.MotionEvent;
 
 /**
  * Defines contract for a {@link android.view.View} that can be intercepted.
@@ -66,4 +67,14 @@ public interface ViewProxy {
      * Calls {@code super.onSetMeasuredDimension(int, int)}.
      */
     void invokeSetMeasuredDimension(int width, int height);
+
+    /**
+     * Calls {@code super.onTouchEvent(MotionEvent)}.
+     */
+    boolean invokeOnTouchEvent(MotionEvent event);
+
+    /**
+     * Calls {@code super.onInterceptTouchEvent(MotionEvent)}.
+     */
+    boolean invokeOnInterceptTouchEvent(MotionEvent event);
 }
